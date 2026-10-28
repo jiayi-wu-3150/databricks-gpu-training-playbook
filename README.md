@@ -179,16 +179,6 @@ Without it, UC rejects the model.
 across tenants and hands back 8×H100 in seconds; a classic cluster asks for 8 contiguous GPUs in
 one AZ and can take 10–14 minutes to find out it cannot have them. Set `"zone_id": "auto"`.
 
-## `reference/`
-
-Supporting material from the same investigation, kept because the evidence is useful — not part of
-the seven steps:
-
-| Folder | What it is |
-|---|---|
-| [`reference/vit-workshop/`](reference/vit-workshop/) | ViT / food101 image-classification demo across single-GPU, DDP, `TorchDistributor`, and DeepSpeed, plus a 3-hour workshop agenda |
-| [`reference/lora-configs/`](reference/lora-configs/) | Qwen2.5 LLM-LoRA and Qwen2-VL VLM-LoRA fine-tuning configs, `FINDINGS.md`, and a slide deck |
-| [`reference/earlier-iteration/`](reference/earlier-iteration/) | The first pass at this inpainting pipeline, and the environment **probes** used to bisect the dependency conflicts above |
 
 ## Notes
 
