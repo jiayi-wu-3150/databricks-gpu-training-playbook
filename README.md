@@ -9,6 +9,33 @@ register → batch-score → serve. Every step was **executed** on a real worksp
 (`fevm-classic-stable-qxxm2v`, 2026-10-28) and every number below is measured, not estimated.
 Measured facts are date-stamped, because they rot.
 
+## What this is, and what it is not
+
+**This repo demonstrates capability, not performance.** It shows that the whole lifecycle — data
+prep, fine-tune, eval, UC registration, batch scoring, serving — runs end to end on both
+Databricks GPU runtimes, and what the code for each one looks like. That is the deliverable.
+
+**Do not read the numbers as a runtime comparison.** The two runtimes are sized differently on
+purpose, so each is used the way you actually would use it:
+
+| | Serverless | Classic |
+|---|---|---|
+| GPUs | **8 × H100 80GB** | **4 × A10G 24GB** |
+| Global batch | 64 | 32 |
+| Rows batch-scored | 64 | 16 |
+
+Different GPU class, different GPU count, different batch size, different row count. The ~3.2×
+gap in steps/sec says almost nothing about the two runtimes and almost everything about 8×H100
+versus 4×A10G. A like-for-like benchmark would need identical accelerators and identical batch
+sizes, and that is deliberately not what this is.
+
+**The data is synthetic.** `00_prepare_data` generates it, and the fine-tune is a 10-step smoke
+run, not a convergence run. **No metric here is a model-quality result.**
+
+The one number that *is* meant to match across runtimes is the base-model eval arm — **17.540 dB
+on both** — because that arm is the same model, same seed, same 8 samples. That it matches is the
+evidence the eval harness is sound. Everything else is intentionally unmatched.
+
 ## Run order
 
 | Step | File | Compute | Produces |
@@ -32,7 +59,9 @@ and dependency pins; one file with branches hid those differences and made both 
 
 ## Measured results
 
-Synthetic data, and a 10-step smoke run rather than a convergence run.
+Synthetic data, and a 10-step smoke run rather than a convergence run. These are **capability
+evidence** — proof each step ran, and roughly what it costs in wall-clock on the stated hardware.
+They are not a benchmark, and not comparable across the two columns.
 
 **Data (00)** — 512 px, seed 17: train 256 samples / 16 Parquet shards, val 64 / 4, test 64 / 4.
 Raw PNGs are kept alongside the Parquet so a notebook can display samples.
@@ -54,8 +83,9 @@ pipeline. Download 6.2 s, UC register 111.3 s, UC load 76.2 s, 8-step predict 0.
 | Steps/sec | 0.691 | 0.216 |
 | Peak GPU mem | 22.83 GB | 22.63 GB |
 
-Not a benchmark: different GPUs, batch sizes, and world sizes. Both are *correct* configurations
-for their runtime, which is the point.
+**Not a benchmark.** 8×H100 against 4×A10G is twice the GPUs of a much newer class, at twice the
+global batch — the wall-clock gap is dominated by hardware, not by runtime. Both columns are
+*correct* configurations for their runtime, and that is the whole point.
 
 **Evaluation (03)** — 8 test samples, 50 denoise steps, **seed 1234**, masked-region PSNR:
 
@@ -78,6 +108,7 @@ measuring sampling noise instead of the model. ~3.05 s/image.
 | Serverless | 60.9 s | 50.7 s | 0.65 s |
 | Classic | 110.7 s | 74.2 s | 0.68 s |
 
+These two columns ran on different node types, so the delta is not a runtime property either.
 Registration is for **governance, not speed** — UC load is slower than a local checkpoint. What it
 buys: versioning, aliases, lineage, access control, no HF egress at inference, and Model Serving
 compatibility.
@@ -92,7 +123,8 @@ compatibility.
 | Throughput | 1.471 img/s | 0.137 img/s |
 | Balance | exactly 8 rows/rank, 0.512–0.561 img/s | — |
 
-Again not a comparison — different row counts and GPUs. The useful reading: `spark_udf` is the
+**Again not a comparison** — 64 rows on 8×H100 against 16 rows on 4×A10G, via different
+mechanisms. The useful reading: `spark_udf` is the
 right *shape* for classic batch scoring but needs a **multi-node** GPU cluster; on a single node,
 Spark tasks contend for the same GPUs and most of the hardware sits idle.
 
@@ -114,15 +146,15 @@ live, and always tear down in a `finally`.
   environment for jobs* preview (Beta); without it you silently get **Standard v6**, which has no
   torch. This playbook is written to work with no previews enabled.
 
-## The data is synthetic, on purpose
+## The synthetic task, and swapping in real data
 
 `00_prepare_data` draws text overlays onto images to synthesise an Overlay-Text-Removal task
 (`input` = text on image, `target` = clean, `mask` = text region). This exercises every stage of
-the pipeline in minutes instead of hours.
+the pipeline in minutes instead of hours, which is why it is synthetic.
 
-**No metric here is a model-quality result.** For a defensible quality claim, swap in the real
+For a defensible quality claim, swap in the real
 [OTR dataset](https://huggingface.co/datasets/cyberagent/OTR) (~80 GB); it is a path change, not a
-rewrite.
+rewrite. Nothing downstream of step 00 needs to change.
 
 ## One pin set, and the validated alternative
 
