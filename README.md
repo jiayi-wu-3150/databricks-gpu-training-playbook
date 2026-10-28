@@ -1,48 +1,46 @@
-# Databricks GPU Training Playbook
+# SD2 Inpainting on Databricks GPUs — a validated playbook
 
-Working, end-to-end GPU fine-tuning on Databricks across **two runtimes** — AI Runtime
-serverless GPU and classic GPU compute — with every step executed on a real workspace and the
-measured numbers recorded.
+Fine-tune Stable Diffusion 2 inpainting on **both** Databricks GPU runtimes — AI Runtime
+serverless GPU and classic GPU compute — with the differences between them made explicit rather
+than papered over.
 
-The headline deliverable is [`sd2_playbook/`](sd2_playbook/): Stable Diffusion 2 **inpainting**
-fine-tuned, evaluated, registered to Unity Catalog, batch-scored, and served — once per runtime,
-as separate jobs.
+Seven steps: prepare data → stage the base model in Unity Catalog → fine-tune → evaluate →
+register → batch-score → serve. Every step was **executed** on a real workspace
+(`fevm-classic-stable-qxxm2v`, 2026-10-28) and every number below is measured, not estimated.
+Measured facts are date-stamped, because they rot.
 
-## What's in here
+## Run order
 
-| Folder | What it is |
-|---|---|
-| [`sd2_playbook/`](sd2_playbook/) | **Start here.** 7-step SD2-inpainting pipeline, both runtimes, all steps verified |
-| [`gpu_training_demo/`](gpu_training_demo/) | ViT image-classification demo + 3-hour workshop agenda. Single-GPU, DDP, TorchDistributor, DeepSpeed |
-| [`diffusion_inpainting_demo/`](diffusion_inpainting_demo/) | Earlier inpainting iteration, plus the environment **probes** used to bisect the dependency conflicts |
-| [`gpu_training_playbook/`](gpu_training_playbook/) | Vision / LLM-LoRA / VLM-LoRA fine-tuning configs, `FINDINGS.md`, and a slide deck |
+| Step | File | Compute | Produces |
+|---|---|---|---|
+| 00 | `00_prepare_data.py` | serverless CPU | raw PNG triplets + **sharded Parquet**, 3 splits |
+| 01 | `01_stage_base_model.py` | any GPU | base SD2 pinned by revision → **UC registered model** |
+| 02a | `02a_finetune_serverless.py` | AIR **env v6**, `GPU_8xH100` | fine-tuned UNet + checkpoints |
+| 02b | `02b_finetune_classic.py` | DBR **18 LTS** ML GPU, 4×A10G | fine-tuned UNet + checkpoints |
+| 03a | `03a_eval_serverless.py` | 1 GPU, serverless | **test-split** metrics + 3-arm ablation |
+| 03b | `03b_eval_classic.py` | 1 GPU, classic | same, on classic |
+| 04a | `04a_register_serverless.py` | 1 GPU, serverless | UC model + `@champion`, promotion gate |
+| 04b | `04b_register_classic.py` | 1 GPU, classic | same, on classic |
+| 05a | `05a_batch_inference_serverless.py` | AIR env v6 | sharded batch scoring (no Spark) |
+| 05b | `05b_batch_inference_classic.py` | DBR 18 LTS | `spark_udf` batch scoring |
+| 06 | `06_serving_endpoint.py` | serverless | GPU endpoint — created, validated, then **deleted** |
 
-## The 7 steps, and where each runs
+Job specs for all of the above are in [`conf/`](conf/).
 
-Each step is a separate job so the two runtimes never share state.
-
-| Step | Serverless (AI Runtime) | Classic GPU |
-|---|---|---|
-| 00 Prepare data | `00_prepare_data.py` — shared, writes raw PNGs + Parquet shards | ← same |
-| 01 Stage base model | `01_stage_base_model.py` — HF → UC, pinned revision | ← same |
-| 02 Fine-tune | `02a` `@distributed` + `UCVolumeDataset` | `02b` `TorchDistributor` + `pyarrow` |
-| 03 Evaluate | `03a` seeded 3-arm ablation | `03b` same |
-| 04 Register to UC | `04a` PyFunc + signature + promotion gate | `04b` same |
-| 05 Batch inference | `05a` `@distributed`, manual row sharding | `05b` `mlflow.pyfunc.spark_udf` |
-| 06 Serving endpoint | `06_serving_endpoint.py` — create → validate → **always delete** | ← same |
+Classic and serverless are deliberately **separate files**. They differ in launcher, data loader,
+and dependency pins; one file with branches hid those differences and made both harder to read.
 
 ## Measured results
 
-All numbers from a single pass on a Databricks workspace, 2026-10-28. Synthetic data; a
-10-step smoke run, not a convergence run.
+Synthetic data, and a 10-step smoke run rather than a convergence run.
 
-**Data (step 00)** — 512 px, seed 17: train 256 samples / 16 Parquet shards, val 64 / 4, test 64 / 4.
-Raw PNGs kept alongside Parquet so notebooks can display samples.
+**Data (00)** — 512 px, seed 17: train 256 samples / 16 Parquet shards, val 64 / 4, test 64 / 4.
+Raw PNGs are kept alongside the Parquet so a notebook can display samples.
 
-**Base model (step 01)** — `stable-diffusion-2-inpainting` at pinned revision `5f74973`, 2.58 GB
+**Base model (01)** — `stable-diffusion-2-inpainting` at pinned revision `5f74973`, 2.58 GB
 pipeline. Download 6.2 s, UC register 111.3 s, UC load 76.2 s, 8-step predict 0.68 s, round-trip OK.
 
-**Fine-tune (step 02)**
+**Fine-tune (02)**
 
 | | Serverless | Classic |
 |---|---|---|
@@ -59,7 +57,7 @@ pipeline. Download 6.2 s, UC register 111.3 s, UC load 76.2 s, 8-step predict 0.
 Not a benchmark: different GPUs, batch sizes, and world sizes. Both are *correct* configurations
 for their runtime, which is the point.
 
-**Evaluation (step 03)** — 8 test samples, 50 denoise steps, **seed 1234**, masked-region PSNR:
+**Evaluation (03)** — 8 test samples, 50 denoise steps, **seed 1234**, masked-region PSNR:
 
 | Arm | PSNR (dB) |
 |---|---|
@@ -69,18 +67,22 @@ for their runtime, which is the point.
 | Fine-tuned (serverless) | 17.456 → −0.084 vs base |
 
 Both deltas fall inside the **0.25 dB noise margin**, so the verdict is **INCONCLUSIVE** — exactly
-what a 10-step run should produce. That the base arm scores 17.540 on both runtimes is the
-evidence the sampler is properly seeded; unseeded, this number drifts and an ablation ends up
+what a 10-step run should produce. That the base arm scores 17.540 on *both* runtimes is the
+evidence the sampler is properly seeded; unseeded, this number drifts and the ablation ends up
 measuring sampling noise instead of the model. ~3.05 s/image.
 
-**Register to UC (step 04)** — both runtimes, version 1 at `@champion`, 2.58 GB:
+**Register to UC (04)** — both runtimes, version 1 at `@champion`, 2.58 GB:
 
 | | register | UC load | predict |
 |---|---|---|---|
 | Serverless | 60.9 s | 50.7 s | 0.65 s |
 | Classic | 110.7 s | 74.2 s | 0.68 s |
 
-**Batch inference (step 05)**
+Registration is for **governance, not speed** — UC load is slower than a local checkpoint. What it
+buys: versioning, aliases, lineage, access control, no HF egress at inference, and Model Serving
+compatibility.
+
+**Batch inference (05)**
 
 | | Serverless | Classic |
 |---|---|---|
@@ -91,42 +93,107 @@ measuring sampling noise instead of the model. ~3.05 s/image.
 | Balance | exactly 8 rows/rank, 0.512–0.561 img/s | — |
 
 Again not a comparison — different row counts and GPUs. The useful reading: `spark_udf` is the
-right *shape* for classic batch scoring but needs a **multi-node** GPU cluster; on one node, Spark
-tasks contend for the same GPUs and most of the hardware sits idle.
+right *shape* for classic batch scoring but needs a **multi-node** GPU cluster; on a single node,
+Spark tasks contend for the same GPUs and most of the hardware sits idle.
 
-**Serving (step 06)** — `GPU_MEDIUM`: ready in **1565.8 s (26.1 min)**, invocation 1.79 s,
-512×512 prediction validated, endpoint **deleted**. Budget ~26 min for a 2.58 GB diffusion
-pipeline to go live, and always tear down in a `finally`.
+**Serving (06)** — `GPU_MEDIUM`: ready in **1565.8 s (26.1 min)**, invocation 1.79 s, 512×512
+prediction validated, endpoint **deleted**. Budget ~26 min for a 2.58 GB diffusion pipeline to go
+live, and always tear down in a `finally`.
 
-## Constraints worth knowing before you start
+## Prerequisites
 
-**Pin set.** `diffusers==0.39.0` with `transformers<5`. The chain is
-`mosaicml-streaming` → `transformers<5` → `huggingface_hub<1.0` → `diffusers<=0.39`. Classic *can*
-run `diffusers 0.42` if you lift `transformers` too — verified — but 0.39 has the smaller blast
-radius. The probes that established this are in `diffusion_inpainting_demo/9*_*probe*.py`.
+- Unity Catalog schema + volumes. This playbook uses
+  `classic_stable_qxxm2v_catalog.sd2_playbook` with volumes `data` and `checkpoints`.
+  **The volumes must exist before any step runs** — the first path segment under
+  `/Volumes/{cat}/{schema}/` must be a *registered volume*; `os.makedirs` cannot create one and
+  fails with the unhelpful `OSError: [Errno 95] Operation not supported`.
+- Teardown is one statement: `DROP SCHEMA <catalog>.sd2_playbook CASCADE`.
+- Classic: an all-purpose GPU cluster — single-node profile, `SINGLE_USER` access mode,
+  `NCCL_P2P_DISABLE=1` on G5.
+- Serverless: nothing to provision — but running **AI v6** in a Job needs the *workspace base
+  environment for jobs* preview (Beta); without it you silently get **Standard v6**, which has no
+  torch. This playbook is written to work with no previews enabled.
 
-**Shard count is not free.** `UCVolumeDataset` shards the **file list** across
-`(rank, worker)` streams, so you need `n_files >= world_size × num_workers`. Too few shards and
-some streams get nothing, and DDP **hangs** at the next all-reduce rather than erroring. `02a`
-asserts this up front.
+## The data is synthetic, on purpose
+
+`00_prepare_data` draws text overlays onto images to synthesise an Overlay-Text-Removal task
+(`input` = text on image, `target` = clean, `mask` = text region). This exercises every stage of
+the pipeline in minutes instead of hours.
+
+**No metric here is a model-quality result.** For a defensible quality claim, swap in the real
+[OTR dataset](https://huggingface.co/datasets/cyberagent/OTR) (~80 GB); it is a path change, not a
+rewrite.
+
+## One pin set, and the validated alternative
+
+Both runtimes run **`diffusers==0.39.0`** with DBR's own `transformers 4.x`.
+
+| | Classic (18 LTS) | Serverless (AIR env v6) |
+|---|---|---|
+| diffusers | `0.39.0` | `0.39.0` |
+| transformers | 4.57.x (DBR's, unpinned) | 4.57.x |
+| Launcher | `TorchDistributor`, function mode | `@distributed` |
+| Data loader | `pyarrow` + `DistributedSampler` | `UCVolumeDataset` + `air.DataLoader` |
+
+So the **only** differences between the runtimes are the launcher and the loader. Same data, same
+model, same dependency set.
+
+### Why 0.39 and not something current
+
+Not because classic cannot do better — **it can**, and we measured it. On DBR 18 LTS, forcing
+`diffusers==0.42.0` + `transformers>=5` + `huggingface_hub>=1.32,<3` is **functional**: it loaded
+the real pipeline in 81.2 s and ran 8 denoising steps in 2.12 s on an A10G, with
+`transformers 5.21.0` / `hub 2.3.0`.
+
+The cost is that it **overrides DBR's own ML stack** and leaves it inconsistent:
+
+```
+datasets 4.3.0              requires huggingface-hub<2.0   -> violated
+sentence-transformers 5.1.2 requires transformers<5        -> violated
+```
+
+Harmless for *this* workload (we use `pyarrow`, never `datasets` or `sentence-transformers`) but a
+landmine for anyone who later adds those to the same notebook. And SD2 inpainting gains nothing
+from 0.40+ — `StableDiffusionInpaintPipeline` has been stable for years.
+
+So **`0.39` is the default because it costs nothing and breaks nothing.** Note that lifting
+`huggingface_hub` alone does *not* work; you must lift `transformers` too, or you get an
+`ImportError` on `resolve_revision`.
+
+## Other constraints worth knowing
+
+**Shard count is not free.** `UCVolumeDataset` shards the **file list** across `(rank, worker)`
+streams, so you need `n_files >= world_size × num_workers`. Too few shards and some streams get
+nothing, and DDP **hangs** at the next all-reduce rather than erroring. `02a` asserts this up front.
 
 **`@distributed` needs notebook context.** In an `air run` CLI job it calls
 `set_databricks_credentials_from_dbutils()` and fails with
 `cluster_id is required in the configuration`. Use `torchrun` for CLI jobs — AIR injects
 `NUM_NODES` / `NODE_RANK` / `MASTER_ADDR` / `MASTER_PORT`.
 
-**UC registration needs an explicit signature.** There is no `mlflow.diffusers` flavor, so these
-steps wrap the pipeline in a custom PyFunc with an explicit `ModelSignature` *and* `ParamSchema`.
+**UC registration needs an explicit signature.** There is no `mlflow.diffusers` flavor, so step 04
+wraps the pipeline in a custom PyFunc with an explicit `ModelSignature` *and* `ParamSchema`.
 Without it, UC rejects the model.
 
 **8 contiguous GPUs on classic is a capacity question, not a billing one.** Serverless pools
 across tenants and hands back 8×H100 in seconds; a classic cluster asks for 8 contiguous GPUs in
 one AZ and can take 10–14 minutes to find out it cannot have them. Set `"zone_id": "auto"`.
 
+## `reference/`
+
+Supporting material from the same investigation, kept because the evidence is useful — not part of
+the seven steps:
+
+| Folder | What it is |
+|---|---|
+| [`reference/vit-workshop/`](reference/vit-workshop/) | ViT / food101 image-classification demo across single-GPU, DDP, `TorchDistributor`, and DeepSpeed, plus a 3-hour workshop agenda |
+| [`reference/lora-configs/`](reference/lora-configs/) | Qwen2.5 LLM-LoRA and Qwen2-VL VLM-LoRA fine-tuning configs, `FINDINGS.md`, and a slide deck |
+| [`reference/earlier-iteration/`](reference/earlier-iteration/) | The first pass at this inpainting pipeline, and the environment **probes** used to bisect the dependency conflicts above |
+
 ## Notes
 
 - Workspace-specific values (catalog, volume paths, cluster IDs, workspace host) are inline as
-  **run** rather than parameterized, so the numbers above are reproducible as-is. Change them for
-  your own workspace.
-- The authoring best-practices docs are intentionally not in this repo; they ship separately as
+  **run** rather than parameterized, so the numbers above reproduce as-is. Change them for your
+  own workspace.
+- The authoring best-practice guides are intentionally not in this repo; they ship separately as
   agent skills.
