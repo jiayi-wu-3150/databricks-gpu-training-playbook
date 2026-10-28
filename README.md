@@ -9,6 +9,18 @@ register → batch-score → serve. Every step was **executed** on a real worksp
 (`fevm-classic-stable-qxxm2v`, 2026-10-28) and every number below is measured, not estimated.
 Measured facts are date-stamped, because they rot.
 
+![Four panels for one test sample: input image with synthetic text overlays, the mask marking the text regions, the fine-tuned model's prediction with the text removed, and the clean ground-truth target](example_eval_grid.png)
+
+*One test sample, emitted by step 03. Left to right: **input** — synthetic `50% OFF` / `2026`
+overlays drawn onto a real food101 photograph; **mask** — the dilated text bounding boxes;
+**prediction** — the fine-tuned model's output; **target** — the clean original. The test split
+uses deliberately harder overlays than train.*
+
+*Read it honestly: the text is gone and the churro and glass behind it are plausibly
+reconstructed, which shows the **pipeline** works end to end. It is not evidence that fine-tuning
+helped — base SD2 already scores 17.540 dB on this split, and the ablation below finds no
+measurable improvement on top of it.*
+
 ## What this is, and what it is not
 
 **This repo demonstrates capability, not performance.** It shows that the whole lifecycle — data
