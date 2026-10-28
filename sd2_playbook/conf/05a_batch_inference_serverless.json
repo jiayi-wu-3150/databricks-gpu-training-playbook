@@ -1,0 +1,13 @@
+{
+  "run_name": "sd2pb-05a-batch-serverless",
+  "tasks": [{"task_key": "batch_serverless",
+    "notebook_task": {"notebook_path": "/Users/jiayi.wu@databricks.com/sd2_playbook/05a_batch_inference_serverless",
+      "base_parameters": {"catalog": "classic_stable_qxxm2v_catalog", "schema": "sd2_playbook",
+        "uc_model": "sd2_inpaint_serverless", "alias": "champion",
+        "accelerator": "GPU_8xH100", "num_accelerators": "8",
+        "split": "test", "num_inference_steps": "20", "limit": "64"}},
+    "compute": {"hardware_accelerator": "GPU_8xH100"}, "environment_key": "air"}],
+  "environments": [{"environment_key": "air", "spec": {"environment_version": "6",
+    "dependencies": ["diffusers==0.39.0", "transformers<5", "huggingface_hub<2.0,>=0.34",
+                     "accelerate", "pillow", "pyarrow", "databricks-sdk-air[data]"]}}]
+}

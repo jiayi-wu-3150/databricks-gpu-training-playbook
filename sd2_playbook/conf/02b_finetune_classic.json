@@ -1,0 +1,24 @@
+{
+  "run_name": "sd2pb-02b-finetune-classic",
+  "tasks": [
+    {
+      "task_key": "finetune_classic",
+      "existing_cluster_id": "1026-022606-jfb2b8y8",
+      "notebook_task": {
+        "notebook_path": "/Users/jiayi.wu@databricks.com/sd2_playbook/02b_finetune_classic",
+        "base_parameters": {
+          "catalog": "classic_stable_qxxm2v_catalog",
+          "schema": "sd2_playbook",
+          "base_model": "sd2_inpaint_base",
+          "base_alias": "base",
+          "num_gpus": "4",
+          "num_training_steps": "10",
+          "per_gpu_batch_size": "1",
+          "grad_accum": "8",
+          "learning_rate": "1e-5",
+          "val_every": "10"
+        }
+      }
+    }
+  ]
+}

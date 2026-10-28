@@ -1,0 +1,27 @@
+{
+  "run_name": "sd2pb-04a-register-serverless",
+  "tasks": [
+    {
+      "task_key": "register_serverless",
+      "notebook_task": {
+        "notebook_path": "/Users/jiayi.wu@databricks.com/sd2_playbook/04a_register_serverless",
+        "base_parameters": {
+          "catalog": "classic_stable_qxxm2v_catalog", "schema": "sd2_playbook",
+          "base_model": "sd2_inpaint_base", "base_alias": "base",
+          "target_model": "sd2_inpaint_serverless", "alias": "champion",
+          "checkpoint_dir": "", "runtime_label": "serverless",
+          "require_improvement": "false"
+        }
+      },
+      "compute": {"hardware_accelerator": "GPU_1xA10"},
+      "environment_key": "air"
+    }
+  ],
+  "environments": [
+    {"environment_key": "air", "spec": {
+      "environment_version": "6",
+      "dependencies": ["diffusers==0.39.0", "transformers<5", "huggingface_hub<2.0,>=0.34",
+                       "accelerate", "pillow", "databricks-sdk-air[data]"]
+    }}
+  ]
+}

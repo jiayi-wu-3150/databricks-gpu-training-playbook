@@ -1,0 +1,15 @@
+experiment_name: playbook-setup
+mlflow_run_name: stage-dataset
+environment:
+  version: 'databricks_ai_v6'
+compute:
+  num_accelerators: 1
+  accelerator_type: GPU_1xA10
+code_source:
+  type: snapshot
+  snapshot:
+    root_path: .
+command: |
+  python $CODE_SOURCE_PATH/00_setup.py
+max_retries: 0
+timeout_minutes: 30

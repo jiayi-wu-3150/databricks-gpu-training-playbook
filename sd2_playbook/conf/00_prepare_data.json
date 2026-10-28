@@ -1,0 +1,24 @@
+{
+  "run_name": "sd2pb-00-prepare-data",
+  "tasks": [
+    {
+      "task_key": "prepare",
+      "notebook_task": {
+        "notebook_path": "/Users/jiayi.wu@databricks.com/sd2_playbook/00_prepare_data",
+        "base_parameters": {
+          "catalog": "classic_stable_qxxm2v_catalog",
+          "schema": "sd2_playbook",
+          "source_images": "/Volumes/classic_stable_qxxm2v_catalog/dl_training/data/food101_shards",
+          "n_train": "256", "n_val": "64", "n_test": "64",
+          "train_shards": "16", "eval_shards": "4",
+          "raw_samples_per_split": "8",
+          "resolution": "512", "seed": "17"
+        }
+      },
+      "environment_key": "cpu"
+    }
+  ],
+  "environments": [
+    {"environment_key": "cpu", "spec": {"environment_version": "4", "dependencies": ["pillow", "pyarrow"]}}
+  ]
+}

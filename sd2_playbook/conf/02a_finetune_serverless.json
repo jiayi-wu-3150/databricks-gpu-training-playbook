@@ -1,0 +1,33 @@
+{
+  "run_name": "sd2pb-02a-finetune-serverless",
+  "tasks": [
+    {
+      "task_key": "finetune_serverless",
+      "notebook_task": {
+        "notebook_path": "/Users/jiayi.wu@databricks.com/sd2_playbook/02a_finetune_serverless",
+        "base_parameters": {
+          "catalog": "classic_stable_qxxm2v_catalog",
+          "schema": "sd2_playbook",
+          "base_model": "sd2_inpaint_base",
+          "base_alias": "base",
+          "accelerator": "GPU_8xH100",
+          "num_accelerators": "8",
+          "num_training_steps": "10",
+          "per_gpu_batch_size": "4",
+          "grad_accum": "2",
+          "learning_rate": "1e-5",
+          "dataloader_workers": "2"
+        }
+      },
+      "compute": {"hardware_accelerator": "GPU_8xH100"},
+      "environment_key": "air"
+    }
+  ],
+  "environments": [
+    {"environment_key": "air", "spec": {
+      "environment_version": "6",
+      "dependencies": ["diffusers==0.39.0", "transformers<5", "huggingface_hub<2.0,>=0.34",
+                       "accelerate", "pillow", "pyarrow", "databricks-sdk-air[data]"]
+    }}
+  ]
+}

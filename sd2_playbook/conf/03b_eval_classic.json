@@ -1,0 +1,24 @@
+{
+  "run_name": "sd2pb-03b-eval-classic-seeded",
+  "tasks": [
+    {
+      "task_key": "eval_classic",
+      "existing_cluster_id": "1026-022606-jfb2b8y8",
+      "notebook_task": {
+        "notebook_path": "/Users/jiayi.wu@databricks.com/sd2_playbook/03b_eval_classic",
+        "base_parameters": {
+          "catalog": "classic_stable_qxxm2v_catalog",
+          "schema": "sd2_playbook",
+          "base_model": "sd2_inpaint_base",
+          "base_alias": "base",
+          "checkpoint_dir": "",
+          "runtime_label": "classic",
+          "split": "test",
+          "n_samples": "8",
+          "num_inference_steps": "50",
+          "seed": "1234"
+        }
+      }
+    }
+  ]
+}

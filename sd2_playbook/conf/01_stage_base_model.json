@@ -1,0 +1,20 @@
+{
+  "run_name": "sd2pb-01-stage-base-model",
+  "tasks": [
+    {
+      "task_key": "stage_base",
+      "existing_cluster_id": "1026-022606-jfb2b8y8",
+      "notebook_task": {
+        "notebook_path": "/Users/jiayi.wu@databricks.com/sd2_playbook/01_stage_base_model",
+        "base_parameters": {
+          "catalog": "classic_stable_qxxm2v_catalog",
+          "schema": "sd2_playbook",
+          "model_name": "sd2_inpaint_base",
+          "hf_repo": "sd2-community/stable-diffusion-2-inpainting",
+          "revision": "5f74973cbb64c8568780732c17f43eb269d63a0d",
+          "verify_roundtrip": "true"
+        }
+      }
+    }
+  ]
+}

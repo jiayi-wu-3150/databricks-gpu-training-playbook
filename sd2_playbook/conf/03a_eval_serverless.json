@@ -1,0 +1,44 @@
+{
+  "run_name": "sd2pb-03a-eval-serverless-seeded",
+  "tasks": [
+    {
+      "task_key": "eval_serverless",
+      "notebook_task": {
+        "notebook_path": "/Users/jiayi.wu@databricks.com/sd2_playbook/03a_eval_serverless",
+        "base_parameters": {
+          "catalog": "classic_stable_qxxm2v_catalog",
+          "schema": "sd2_playbook",
+          "base_model": "sd2_inpaint_base",
+          "base_alias": "base",
+          "checkpoint_dir": "",
+          "runtime_label": "serverless",
+          "split": "test",
+          "n_samples": "8",
+          "num_inference_steps": "50",
+          "seed": "1234"
+        }
+      },
+      "compute": {
+        "hardware_accelerator": "GPU_1xA10"
+      },
+      "environment_key": "air"
+    }
+  ],
+  "environments": [
+    {
+      "environment_key": "air",
+      "spec": {
+        "environment_version": "6",
+        "dependencies": [
+          "diffusers==0.39.0",
+          "transformers<5",
+          "huggingface_hub<2.0,>=0.34",
+          "accelerate",
+          "pillow",
+          "pyarrow",
+          "databricks-sdk-air[data]"
+        ]
+      }
+    }
+  ]
+}

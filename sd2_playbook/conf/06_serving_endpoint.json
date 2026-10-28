@@ -1,0 +1,13 @@
+{
+  "run_name": "sd2pb-06-serving-endpoint",
+  "tasks": [{"task_key": "serving",
+    "notebook_task": {"notebook_path": "/Users/jiayi.wu@databricks.com/sd2_playbook/06_serving_endpoint",
+      "base_parameters": {"catalog": "classic_stable_qxxm2v_catalog", "schema": "sd2_playbook",
+        "uc_model": "sd2_inpaint_serverless", "alias": "champion",
+        "endpoint_name": "sd2-inpaint-playbook", "workload_type": "GPU_MEDIUM",
+        "ready_timeout_minutes": "45", "num_inference_steps": "20",
+        "delete_when_done": "true"}},
+    "environment_key": "cpu"}],
+  "environments": [{"environment_key": "cpu", "spec": {"environment_version": "4",
+    "dependencies": ["pillow", "requests"]}}]
+}

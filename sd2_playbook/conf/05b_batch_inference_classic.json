@@ -1,0 +1,9 @@
+{
+  "run_name": "sd2pb-05b-batch-classic",
+  "tasks": [{"task_key": "batch_classic",
+    "existing_cluster_id": "1026-022606-jfb2b8y8",
+    "notebook_task": {"notebook_path": "/Users/jiayi.wu@databricks.com/sd2_playbook/05b_batch_inference_classic",
+      "base_parameters": {"catalog": "classic_stable_qxxm2v_catalog", "schema": "sd2_playbook",
+        "uc_model": "sd2_inpaint_classic", "alias": "champion",
+        "split": "test", "num_inference_steps": "20", "limit": "16", "partitions": "4"}}}]
+}
