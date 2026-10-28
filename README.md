@@ -29,8 +29,11 @@ gap in steps/sec says almost nothing about the two runtimes and almost everythin
 versus 4×A10G. A like-for-like benchmark would need identical accelerators and identical batch
 sizes, and that is deliberately not what this is.
 
-**The data is synthetic.** `00_prepare_data` generates it, and the fine-tune is a 10-step smoke
-run, not a convergence run. **No metric here is a model-quality result.**
+**The task is synthetic; the images are real.** The base photographs are
+[food101](https://huggingface.co/datasets/ethz/food101) — `00_prepare_data` draws the text
+overlays and masks onto them, so the *inpainting task* is synthesised while the imagery is not.
+See [`prep/`](prep/) for how those photographs get staged. The fine-tune is a 10-step smoke run,
+not a convergence run, and **no metric here is a model-quality result.**
 
 The one number that *is* meant to match across runtimes is the base-model eval arm — **17.540 dB
 on both** — because that arm is the same model, same seed, same 8 samples. That it matches is the
@@ -40,6 +43,7 @@ evidence the eval harness is sound. Everything else is intentionally unmatched.
 
 | Step | File | Compute | Produces |
 |---|---|---|---|
+| — | [`prep/`](prep/) | AIR `GPU_1xA10` | **run once per workspace** — stages food101 into a volume |
 | 00 | `00_prepare_data.py` | serverless CPU | raw PNG triplets + **sharded Parquet**, 3 splits |
 | 01 | `01_stage_base_model.py` | any GPU | base SD2 pinned by revision → **UC registered model** |
 | 02a | `02a_finetune_serverless.py` | AIR **env v6**, `GPU_8xH100` | fine-tuned UNet + checkpoints |
@@ -139,18 +143,30 @@ live, and always tear down in a `finally`.
   **The volumes must exist before any step runs** — the first path segment under
   `/Volumes/{cat}/{schema}/` must be a *registered volume*; `os.makedirs` cannot create one and
   fails with the unhelpful `OSError: [Errno 95] Operation not supported`.
-- Teardown is one statement: `DROP SCHEMA <catalog>.sd2_playbook CASCADE`.
+- The source images must be staged first — see [`prep/`](prep/). Step 00 reads
+  `/Volumes/{catalog}/dl_training/data/food101_shards` and fails if it is empty.
+- Teardown is one statement: `DROP SCHEMA <catalog>.sd2_playbook CASCADE`. The `dl_training`
+  schema holding the source images is deliberately separate, so teardown does not destroy it.
 - Classic: an all-purpose GPU cluster — single-node profile, `SINGLE_USER` access mode,
   `NCCL_P2P_DISABLE=1` on G5.
 - Serverless: nothing to provision — but running **AI v6** in a Job needs the *workspace base
   environment for jobs* preview (Beta); without it you silently get **Standard v6**, which has no
   torch. This playbook is written to work with no previews enabled.
 
-## The synthetic task, and swapping in real data
+## Where the data comes from, and the synthetic task
 
-`00_prepare_data` draws text overlays onto images to synthesise an Overlay-Text-Removal task
-(`input` = text on image, `target` = clean, `mask` = text region). This exercises every stage of
-the pipeline in minutes instead of hours, which is why it is synthetic.
+Two stages, and the distinction matters:
+
+1. **Real photographs.** [`prep/`](prep/) stages 20,000 [food101](https://huggingface.co/datasets/ethz/food101)
+   images from Hugging Face into `/Volumes/{catalog}/dl_training/data/food101_shards` as 27
+   parquet shards. Run once per workspace; steps 00–06 are self-contained after that.
+2. **Synthetic task.** `00_prepare_data` reads those photographs and draws text overlays onto
+   them, producing an Overlay-Text-Removal triplet (`input` = text on image, `target` = clean,
+   `mask` = dilated text bounding box). The *overlays and masks* are generated; the underlying
+   imagery is not.
+
+So "synthetic" here means the **task** is synthesised, not that pixels were invented. That is what
+makes it exercise every stage of the pipeline in minutes instead of hours.
 
 For a defensible quality claim, swap in the real
 [OTR dataset](https://huggingface.co/datasets/cyberagent/OTR) (~80 GB); it is a path change, not a
